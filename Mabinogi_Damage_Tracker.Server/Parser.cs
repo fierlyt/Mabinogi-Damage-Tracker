@@ -21,6 +21,10 @@ namespace Mabinogi_Damage_tracker
 {
     public static class Parser
     {
+        private static HashSet<uint> _recentSequences = new HashSet<uint>();
+        private static Queue<uint> _sequenceHistory = new Queue<uint>();
+        private const int MaxCacheSize = 2000;
+
         private const int MaxGameSubPacketLength = 2000;
         private const int MaxStreamBufferBytes = 256 * 1024;
         private const int MaxQueuedSegmentsPerStream = 64;
@@ -152,7 +156,7 @@ namespace Mabinogi_Damage_tracker
             Debug.WriteLine("starting Parser");
             LogsController.WriteLog("Starting Parser.");
 
-            string filter = "ip and tcp and not (port 25565 or port 25564) and (net 208.85.109.0/24 or portrange 11020-11023)";
+            string filter = "ip and tcp and (portrange 11020-11023 or port >= 40000)";
 #if DEBUG_LIVE || RELEASE
             adapters = LibPcapLiveDeviceList.Instance.Select(a => a.Description).ToList();
             adapter_description = db_helper.Get_Local_Adapter();
@@ -234,6 +238,31 @@ namespace Mabinogi_Damage_tracker
             }
 
             RawCapture raw = e.GetPacket();
+            var linkPacket = PacketDotNet.Packet.ParsePacket(raw.LinkLayerType, raw.Data);
+            var tcpPacket = linkPacket.Extract<PacketDotNet.TcpPacket>();
+
+        if (tcpPacket != null)
+        {
+            uint sequenceNumber = tcpPacket.SequenceNumber;
+
+            lock (_recentSequences)
+            {
+                if (_recentSequences.Contains(sequenceNumber))
+                {
+                    // ExitLag duplicate path intercepted. Drop packet!
+                    return;
+                }
+
+                _recentSequences.Add(sequenceNumber);
+                _sequenceHistory.Enqueue(sequenceNumber);
+
+                if (_sequenceHistory.Count > MaxCacheSize)
+                {
+                    uint oldest = _sequenceHistory.Dequeue();
+                    _recentSequences.Remove(oldest);
+                }
+            }
+
 
 #if DEBUG_FILE
             if (enable_realtime == true)
