@@ -262,6 +262,7 @@ namespace Mabinogi_Damage_tracker
                     _recentSequences.Remove(oldest);
                 }
             }
+        }
 
 
 #if DEBUG_FILE
