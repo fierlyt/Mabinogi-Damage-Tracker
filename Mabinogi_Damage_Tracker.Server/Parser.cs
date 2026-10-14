@@ -152,7 +152,7 @@ namespace Mabinogi_Damage_tracker
             Debug.WriteLine("starting Parser");
             LogsController.WriteLog("Starting Parser.");
 
-            string filter = "ip and tcp and tcp portrange 11020-11023";
+            string filter = "ip and tcp and tcp portrange 11020-65000";
 #if DEBUG_LIVE || RELEASE
             adapters = LibPcapLiveDeviceList.Instance.Select(a => a.Description).ToList();
             adapter_description = db_helper.Get_Local_Adapter();
